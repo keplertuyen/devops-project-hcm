@@ -13,7 +13,7 @@ const pool = new Pool({
    user: process.env.DB_USER || 'postgres',
    host: process.env.DB_HOST || 'localhost',
    database: process.env.DB_NAME || 'tododb',
-   password: process.env.DB_PASSWORD || 'wrongpassword',
+   password: process.env.DB_PASSWORD || 'mypassword',
    port: process.env.DB_PORT || 5432,
 });
 
@@ -38,6 +38,9 @@ app.post('/api/todos', async (req, res) => {
       const { title, completed = false } = req.body;
 
       // STUDENT FIX: Add validation here!
+      if (!title || title.trim() === '') {
+  return res.status(400).json({ error: 'Title is required' });
+}
       // Hint: Check if title is empty or undefined
       // Return 400 status with error message if invalid
 
@@ -52,18 +55,43 @@ app.post('/api/todos', async (req, res) => {
 });
 
 // BUG #3: Missing DELETE endpoint - but test expects it!
+app.delete('/api/todos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM todos WHERE id = $1', [id]);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // STUDENT TODO: Implement DELETE /api/todos/:id endpoint
 
 // BUG #4: Missing PUT endpoint for updating todos
+app.put('/api/todos/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, completed } = req.body;
+    const result = await pool.query(
+      'UPDATE todos SET title = $1, completed = $2 WHERE id = $3 RETURNING *',
+      [title, completed, id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // STUDENT TODO: Implement PUT /api/todos/:id endpoint
 
 const port = process.env.PORT || 8080;
 
 // BUG #5: Server starts even in test mode, causing port conflicts
 // STUDENT FIX: Only start server if NOT in test mode
-app.listen(port, () => {
-   console.log(`Backend running on port ${port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`Backend running on port ${port}`);
+  });
+}
 
 // BUG #6: App not exported - tests can't import it!
+module.exports = app;
 // STUDENT FIX: Export the app module
